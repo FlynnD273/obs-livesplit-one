@@ -60,6 +60,8 @@ use log::{debug, error, info, warn, Level, LevelFilter, Log, Metadata, Record};
 use serde_derive::Deserialize;
 use serde_json::from_str;
 
+use crate::localization::{lang, Text};
+
 #[cfg(feature = "auto-splitting")]
 use {
     self::ffi::{
@@ -83,6 +85,7 @@ macro_rules! cstr {
 
 #[cfg(feature = "auto-splitting")]
 mod auto_splitters;
+mod localization;
 
 static OBS_MODULE_POINTER: AtomicPtr<obs_module_t> = AtomicPtr::new(ptr::null_mut());
 
@@ -451,7 +454,7 @@ unsafe fn parse_settings(settings: *mut obs_data_t) -> Settings {
 
         let layout_path =
             CStr::from_ptr(obs_data_get_string(settings, SETTINGS_LAYOUT_PATH).cast());
-        let layout = parse_layout(layout_path).unwrap_or_else(Layout::default_layout);
+        let layout = parse_layout(layout_path).unwrap_or_else(|| Layout::default_layout(lang()));
 
         let width = obs_data_get_int(settings, SETTINGS_WIDTH) as u32;
         let height = obs_data_get_int(settings, SETTINGS_HEIGHT) as u32;
@@ -558,6 +561,7 @@ impl State {
                 &mut self.state,
                 &mut self.image_cache,
                 &self.global_timer.timer.get_timer().snapshot(),
+                lang(),
             );
 
             self.renderer
@@ -793,10 +797,12 @@ unsafe extern "C" fn create(settings: *mut obs_data_t, source: *mut obs_source_t
         ))))
         .cast();
 
+        let lang = lang();
+
         obs_hotkey_register_source(
             source,
             cstr!(c"hotkey_split"),
-            cstr!(c"Split"),
+            Text::HotkeySplit.resolve(lang),
             Some(split),
             data,
         );
@@ -804,7 +810,7 @@ unsafe extern "C" fn create(settings: *mut obs_data_t, source: *mut obs_source_t
         obs_hotkey_register_source(
             source,
             cstr!(c"hotkey_reset"),
-            cstr!(c"Reset"),
+            Text::HotkeyReset.resolve(lang),
             Some(reset),
             data,
         );
@@ -812,7 +818,7 @@ unsafe extern "C" fn create(settings: *mut obs_data_t, source: *mut obs_source_t
         obs_hotkey_register_source(
             source,
             cstr!(c"hotkey_undo"),
-            cstr!(c"Undo Split"),
+            Text::HotkeyUndoSplit.resolve(lang),
             Some(undo),
             data,
         );
@@ -820,7 +826,7 @@ unsafe extern "C" fn create(settings: *mut obs_data_t, source: *mut obs_source_t
         obs_hotkey_register_source(
             source,
             cstr!(c"hotkey_skip"),
-            cstr!(c"Skip Split"),
+            Text::HotkeySkipSplit.resolve(lang),
             Some(skip),
             data,
         );
@@ -828,7 +834,7 @@ unsafe extern "C" fn create(settings: *mut obs_data_t, source: *mut obs_source_t
         obs_hotkey_register_source(
             source,
             cstr!(c"hotkey_pause"),
-            cstr!(c"Pause"),
+            Text::HotkeyPause.resolve(lang),
             Some(pause),
             data,
         );
@@ -836,7 +842,7 @@ unsafe extern "C" fn create(settings: *mut obs_data_t, source: *mut obs_source_t
         obs_hotkey_register_source(
             source,
             cstr!(c"hotkey_undo_all_pauses"),
-            cstr!(c"Undo All Pauses"),
+            Text::HotkeyUndoAllPauses.resolve(lang),
             Some(undo_all_pauses),
             data,
         );
@@ -844,7 +850,7 @@ unsafe extern "C" fn create(settings: *mut obs_data_t, source: *mut obs_source_t
         obs_hotkey_register_source(
             source,
             cstr!(c"hotkey_previous_comparison"),
-            cstr!(c"Previous Comparison"),
+            Text::HotkeyPreviousComparison.resolve(lang),
             Some(previous_comparison),
             data,
         );
@@ -852,7 +858,7 @@ unsafe extern "C" fn create(settings: *mut obs_data_t, source: *mut obs_source_t
         obs_hotkey_register_source(
             source,
             cstr!(c"hotkey_next_comparison"),
-            cstr!(c"Next Comparison"),
+            Text::HotkeyNextComparison.resolve(lang),
             Some(next_comparison),
             data,
         );
@@ -860,7 +866,7 @@ unsafe extern "C" fn create(settings: *mut obs_data_t, source: *mut obs_source_t
         obs_hotkey_register_source(
             source,
             cstr!(c"hotkey_toggle_timing_method"),
-            cstr!(c"Toggle Timing Method"),
+            Text::HotkeyToggleTimingMethod.resolve(lang),
             Some(toggle_timing_method),
             data,
         );
@@ -1081,7 +1087,10 @@ unsafe extern "C" fn use_local_auto_splitter_modified(
 
         obs_property_set_visible(local_auto_splitter_path, use_local_auto_splitter);
 
-        obs_property_set_description(auto_splitter_activate, cstr!(c"Activate"));
+        obs_property_set_description(
+            auto_splitter_activate,
+            Text::AutoSplitterActivate.resolve(lang()),
+        );
 
         update_auto_splitter_ui(
             auto_splitter_info,
@@ -1143,7 +1152,7 @@ unsafe fn update_auto_splitter_ui(
                 obs_property_set_enabled(activate_button, false);
                 obs_property_set_description(
                     info_text,
-                    cstr!(c"This game's auto splitter is incompatible with LiveSplit One."),
+                    Text::AutoSplitterIncompatible.resolve(lang()),
                 );
             } else {
                 obs_property_set_enabled(activate_button, true);
@@ -1159,10 +1168,7 @@ unsafe fn update_auto_splitter_ui(
         } else {
             obs_property_set_enabled(activate_button, false);
             obs_property_set_enabled(website_button, false);
-            obs_property_set_description(
-                info_text,
-                cstr!(c"No auto splitter available for this game."),
-            );
+            obs_property_set_description(info_text, Text::AutoSplitterUnavailable.resolve(lang()));
         }
     }
 }
@@ -1243,12 +1249,14 @@ unsafe fn auto_splitter_update_activation_label(
             .auto_splitter_is_enabled
             .load(atomic::Ordering::Relaxed);
 
+        let lang = lang();
+
         obs_property_set_description(
             activate_button_prop,
             if !is_active {
-                cstr!(c"Activate")
+                Text::AutoSplitterActivate.resolve(lang)
             } else {
-                cstr!(c"Deactivate")
+                Text::AutoSplitterDeactivate.resolve(lang)
             },
         );
     }
@@ -1408,17 +1416,32 @@ const SETTINGS_SAVE_SPLITS: *const c_char = cstr!(c"save_splits");
 unsafe extern "C" fn get_properties(data: *mut c_void) -> *mut obs_properties_t {
     unsafe {
         let state: &mut State = &mut (*data.cast::<Mutex<State>>()).lock().unwrap();
+        let lang = lang();
 
         let props = obs_properties_create();
-        obs_properties_add_int(props, SETTINGS_WIDTH, cstr!(c"Width"), 10, 8200, 10);
-        obs_properties_add_int(props, SETTINGS_HEIGHT, cstr!(c"Height"), 10, 8200, 10);
+        obs_properties_add_int(
+            props,
+            SETTINGS_WIDTH,
+            Text::PropertyWidth.resolve(lang),
+            10,
+            8200,
+            10,
+        );
+        obs_properties_add_int(
+            props,
+            SETTINGS_HEIGHT,
+            Text::PropertyHeight.resolve(lang),
+            10,
+            8200,
+            10,
+        );
 
         let splits_path = obs_properties_add_path(
             props,
             SETTINGS_SPLITS_PATH,
-            cstr!(c"Splits"),
+            Text::PropertySplits.resolve(lang),
             OBS_PATH_FILE,
-            cstr!(c"LiveSplit Splits (*.lss)"),
+            Text::PropertySplitsFilter.resolve(lang),
             ptr::null(),
         );
         obs_data_set_bool(
@@ -1433,21 +1456,21 @@ unsafe extern "C" fn get_properties(data: *mut c_void) -> *mut obs_properties_t 
         obs_properties_add_bool(
             props,
             SETTINGS_AUTO_SAVE,
-            cstr!(c"Automatically save splits file on reset"),
+            Text::PropertyAutoSave.resolve(lang),
         );
         obs_properties_add_button(
             props,
             SETTINGS_SAVE_SPLITS,
-            cstr!(c"Save Splits"),
+            Text::PropertySaveSplits.resolve(lang),
             Some(save_splits),
         );
 
         obs_properties_add_path(
             props,
             SETTINGS_LAYOUT_PATH,
-            cstr!(c"Layout"),
+            Text::PropertyLayout.resolve(lang),
             OBS_PATH_FILE,
-            cstr!(c"LiveSplit Layouts (*.lsl *.ls1l)"),
+            Text::PropertyLayoutFilter.resolve(lang),
             ptr::null(),
         );
 
@@ -1464,7 +1487,7 @@ unsafe extern "C" fn get_properties(data: *mut c_void) -> *mut obs_properties_t 
         let use_game_arguments = obs_properties_add_bool(
             props,
             SETTINGS_USE_GAME_ARGUMENTS,
-            cstr!(c"Advanced start game options"),
+            Text::PropertyAdvancedStartGameOptions.resolve(lang),
         );
 
         obs_property_set_modified_callback2(
@@ -1476,29 +1499,29 @@ unsafe extern "C" fn get_properties(data: *mut c_void) -> *mut obs_properties_t 
         obs_properties_add_path(
             props,
             SETTINGS_GAME_PATH,
-            cstr!(c"Game Path"),
+            Text::PropertyGamePath.resolve(lang),
             OBS_PATH_FILE,
-            cstr!(c"Executable files (*)"),
+            Text::PropertyGamePathFilter.resolve(lang),
             ptr::null(),
         );
         let game_arguments = obs_properties_add_text(
             props,
             SETTINGS_GAME_ARGUMENTS,
-            cstr!(c"Game Arguments"),
+            Text::PropertyGameArguments.resolve(lang),
             OBS_TEXT_DEFAULT,
         );
         let game_working_directory = obs_properties_add_path(
             props,
             SETTINGS_GAME_WORKING_DIRECTORY,
-            cstr!(c"Working Directory"),
+            Text::PropertyWorkingDirectory.resolve(lang),
             OBS_PATH_DIRECTORY,
-            cstr!(c"Directories"),
+            Text::PropertyWorkingDirectoryFilter.resolve(lang),
             ptr::null(),
         );
         let game_env_list = obs_properties_add_editable_list(
             props,
             SETTINGS_GAME_ENVIRONMENT_LIST,
-            cstr!(c"Game Environment Variables (KEY=VALUE)"),
+            Text::PropertyGameEnvironmentVars.resolve(lang),
             OBS_EDITABLE_LIST_TYPE_STRINGS,
             ptr::null(),
             ptr::null(),
@@ -1512,7 +1535,7 @@ unsafe extern "C" fn get_properties(data: *mut c_void) -> *mut obs_properties_t 
         obs_properties_add_button(
             props,
             SETTINGS_START_GAME,
-            cstr!(c"Start Game"),
+            Text::PropertyStartGame.resolve(lang),
             Some(start_game_clicked),
         );
 
@@ -1523,7 +1546,7 @@ unsafe extern "C" fn get_properties(data: *mut c_void) -> *mut obs_properties_t 
             let use_local_auto_splitter = obs_properties_add_bool(
                 props,
                 SETTINGS_LOCAL_AUTO_SPLITTER,
-                cstr!(c"Use local auto splitter"),
+                Text::AutoSplitterUseLocal.resolve(lang),
             );
 
             obs_property_set_modified_callback2(
@@ -1535,16 +1558,16 @@ unsafe extern "C" fn get_properties(data: *mut c_void) -> *mut obs_properties_t 
             let local_auto_splitter_path = obs_properties_add_path(
                 props,
                 SETTINGS_LOCAL_AUTO_SPLITTER_PATH,
-                cstr!(c"Local Auto Splitter File"),
+                Text::AutoSplitterLocalFile.resolve(lang),
                 OBS_PATH_FILE,
-                cstr!(c"LiveSplit One Auto Splitter (*.wasm)"),
+                Text::AutoSplitterLocalFileFilter.resolve(lang),
                 ptr::null(),
             );
 
             let info_text = obs_properties_add_text(
                 props,
                 SETTINGS_AUTO_SPLITTER_INFO,
-                cstr!(c"No splits loaded"),
+                Text::AutoSplitterNoSplitsLoaded.resolve(lang),
                 OBS_TEXT_INFO,
             );
 
@@ -1553,8 +1576,8 @@ unsafe extern "C" fn get_properties(data: *mut c_void) -> *mut obs_properties_t 
                 .auto_splitter_is_enabled
                 .load(atomic::Ordering::Relaxed)
             {
-                true => cstr!(c"Deactivate"),
-                false => cstr!(c"Activate"),
+                true => Text::AutoSplitterDeactivate.resolve(lang),
+                false => Text::AutoSplitterActivate.resolve(lang),
             };
 
             let activate_button = obs_properties_add_button(
@@ -1567,7 +1590,7 @@ unsafe extern "C" fn get_properties(data: *mut c_void) -> *mut obs_properties_t 
             let website_button = obs_properties_add_button(
                 props,
                 SETTINGS_AUTO_SPLITTER_WEBSITE,
-                cstr!(c"Website"),
+                Text::AutoSplitterWebsite.resolve(lang),
                 Some(auto_splitter_open_website),
             );
 
@@ -1775,7 +1798,7 @@ unsafe extern "C" fn get_properties(data: *mut c_void) -> *mut obs_properties_t 
             obs_properties_add_group(
                 props,
                 cstr!(c"auto_splitter_settings_group"),
-                cstr!(c"Auto Splitter Settings"),
+                Text::AutoSplitterSettingsGroup.resolve(lang),
                 OBS_GROUP_NORMAL,
                 auto_splitter_properties,
             );

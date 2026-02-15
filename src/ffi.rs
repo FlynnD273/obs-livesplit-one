@@ -180,4 +180,6 @@ unsafe extern "C" {
 
     #[cfg(feature = "auto-splitting")]
     pub fn obs_source_update_properties(source: *mut obs_source_t);
+
+    pub fn obs_get_locale() -> *const c_char;
 }
