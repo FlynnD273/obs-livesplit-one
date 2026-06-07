@@ -1178,33 +1178,6 @@ unsafe extern "C" fn use_local_auto_splitter_modified(
     }
 }
 
-unsafe extern "C" fn timing_method_modified(
-    data: *mut c_void,
-    _props: *mut obs_properties_t,
-    _prop: *mut obs_property_t,
-    settings: *mut obs_data_t,
-) -> bool {
-    unsafe {
-        let state: &mut State = &mut (*data.cast::<Mutex<State>>()).lock().unwrap();
-        if obs_data_get_bool(settings, SETTINGS_TIMING) {
-            drop(
-                state
-                    .global_timer
-                    .timer
-                    .set_current_timing_method(TimingMethod::GameTime),
-            );
-        } else {
-            drop(
-                state
-                    .global_timer
-                    .timer
-                    .set_current_timing_method(TimingMethod::RealTime),
-            );
-        }
-    }
-    true
-}
-
 unsafe extern "C" fn splits_path_modified(
     data: *mut c_void,
     _props: *mut obs_properties_t,
@@ -1489,7 +1462,6 @@ unsafe extern "C" fn media_get_duration(data: *mut c_void) -> i64 {
     }
 }
 
-const SETTINGS_TIMING: *const c_char = cstr!(c"timing");
 const SETTINGS_WIDTH: *const c_char = cstr!(c"width");
 const SETTINGS_HEIGHT: *const c_char = cstr!(c"height");
 const SETTINGS_USE_GAME_ARGUMENTS: *const c_char = cstr!(c"game_use_arguments");
@@ -1522,11 +1494,6 @@ unsafe extern "C" fn get_properties(data: *mut c_void) -> *mut obs_properties_t 
         let lang = lang();
 
         let props = obs_properties_create();
-        let use_game_time = obs_properties_add_bool(
-            props,
-            SETTINGS_TIMING,
-            Text::PropertyTimingMethod.resolve(lang),
-        );
         obs_properties_add_int(
             props,
             SETTINGS_WIDTH,
@@ -1646,8 +1613,6 @@ unsafe extern "C" fn get_properties(data: *mut c_void) -> *mut obs_properties_t 
             Text::PropertyStartGame.resolve(lang),
             Some(start_game_clicked),
         );
-
-        obs_property_set_modified_callback2(use_game_time, Some(timing_method_modified), data);
 
         obs_property_set_modified_callback2(splits_path, Some(splits_path_modified), data);
 
