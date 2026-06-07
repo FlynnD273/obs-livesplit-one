@@ -555,6 +555,80 @@ impl State {
         }
     }
 
+    fn apply_saved_auto_splitter_settings(&mut self) {
+        loop {
+            let Some(original) = self.global_timer.auto_splitter.settings_map() else {
+                break;
+            };
+            let mut map = original.clone();
+
+            for widget in self.auto_splitter_widgets.iter() {
+                let key = &widget.key;
+                let Ok(data_key) = CString::new(format!("auto_splitter_setting_{}", key)) else {
+                    continue;
+                };
+
+                match &widget.kind {
+                    WidgetKind::Title { .. } => {}
+                    WidgetKind::Bool { default_value } => {
+                        let value =
+                            unsafe { obs_data_get_bool(self.obs_settings, data_key.as_ptr()) };
+                        if value != *default_value {
+                            map.insert(key.clone(), Value::Bool(value));
+                        } else {
+                            map.remove(key);
+                        }
+                    }
+                    WidgetKind::Choice {
+                        default_option_key, ..
+                    } => {
+                        if let Some(value) = unsafe {
+                            CStr::from_ptr(obs_data_get_string(
+                                self.obs_settings,
+                                data_key.as_ptr(),
+                            ))
+                        }
+                        .to_str()
+                        .ok()
+                        .filter(|v| *v != &**default_option_key)
+                        {
+                            map.insert(key.clone(), Value::String(Arc::from(value)));
+                        } else {
+                            map.remove(key);
+                        }
+                    }
+                    WidgetKind::FileSelect { .. } => {
+                        if let Some(value) = unsafe {
+                            CStr::from_ptr(obs_data_get_string(
+                                self.obs_settings,
+                                data_key.as_ptr(),
+                            ))
+                        }
+                        .to_str()
+                        .ok()
+                        .filter(|v| !v.is_empty())
+                        .and_then(|s| wasi_path::from_native(Path::new(s)))
+                        {
+                            map.insert(key.clone(), Value::String(Arc::from(value)));
+                        } else {
+                            map.remove(key);
+                        }
+                    }
+                }
+            }
+
+            if self
+                .global_timer
+                .auto_splitter
+                .set_settings_map_if_unchanged(&original, map.clone())
+                != Some(false)
+            {
+                self.auto_splitter_map = map;
+                break;
+            }
+        }
+    }
+
     unsafe fn render(&mut self) {
         unsafe {
             self.layout.update_state(
@@ -585,6 +659,7 @@ impl State {
                 {
                     if !Arc::ptr_eq(&self.auto_splitter_widgets, &auto_splitter_widgets) {
                         self.auto_splitter_widgets = auto_splitter_widgets;
+                        self.apply_saved_auto_splitter_settings();
                         needs_properties_update = true;
                     }
                 }
@@ -1103,6 +1178,33 @@ unsafe extern "C" fn use_local_auto_splitter_modified(
     }
 }
 
+unsafe extern "C" fn timing_method_modified(
+    data: *mut c_void,
+    _props: *mut obs_properties_t,
+    _prop: *mut obs_property_t,
+    settings: *mut obs_data_t,
+) -> bool {
+    unsafe {
+        let state: &mut State = &mut (*data.cast::<Mutex<State>>()).lock().unwrap();
+        if obs_data_get_bool(settings, SETTINGS_TIMING) {
+            drop(
+                state
+                    .global_timer
+                    .timer
+                    .set_current_timing_method(TimingMethod::GameTime),
+            );
+        } else {
+            drop(
+                state
+                    .global_timer
+                    .timer
+                    .set_current_timing_method(TimingMethod::RealTime),
+            );
+        }
+    }
+    true
+}
+
 unsafe extern "C" fn splits_path_modified(
     data: *mut c_void,
     _props: *mut obs_properties_t,
@@ -1387,6 +1489,7 @@ unsafe extern "C" fn media_get_duration(data: *mut c_void) -> i64 {
     }
 }
 
+const SETTINGS_TIMING: *const c_char = cstr!(c"timing");
 const SETTINGS_WIDTH: *const c_char = cstr!(c"width");
 const SETTINGS_HEIGHT: *const c_char = cstr!(c"height");
 const SETTINGS_USE_GAME_ARGUMENTS: *const c_char = cstr!(c"game_use_arguments");
@@ -1419,6 +1522,11 @@ unsafe extern "C" fn get_properties(data: *mut c_void) -> *mut obs_properties_t 
         let lang = lang();
 
         let props = obs_properties_create();
+        let use_game_time = obs_properties_add_bool(
+            props,
+            SETTINGS_TIMING,
+            Text::PropertyTimingMethod.resolve(lang),
+        );
         obs_properties_add_int(
             props,
             SETTINGS_WIDTH,
@@ -1538,6 +1646,8 @@ unsafe extern "C" fn get_properties(data: *mut c_void) -> *mut obs_properties_t 
             Text::PropertyStartGame.resolve(lang),
             Some(start_game_clicked),
         );
+
+        obs_property_set_modified_callback2(use_game_time, Some(timing_method_modified), data);
 
         obs_property_set_modified_callback2(splits_path, Some(splits_path_modified), data);
 

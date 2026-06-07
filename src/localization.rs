@@ -34,6 +34,7 @@ pub enum Text {
     HotkeyPreviousComparison,
     HotkeyNextComparison,
     HotkeyToggleTimingMethod,
+    PropertyTimingMethod,
     PropertyWidth,
     PropertyHeight,
     PropertySplits,
@@ -85,6 +86,7 @@ impl Text {
 
 fn resolve_english(text: Text) -> *const c_char {
     match text {
+        Text::PropertyTimingMethod => cstr!(c"Default timing method"),
         Text::HotkeySplit => cstr!(c"Start / Split"),
         Text::HotkeyReset => cstr!(c"Reset"),
         Text::HotkeyUndoSplit => cstr!(c"Undo Split"),
@@ -127,6 +129,7 @@ fn resolve_english(text: Text) -> *const c_char {
 
 fn resolve_dutch(text: Text) -> *const c_char {
     match text {
+        Text::PropertyTimingMethod => cstr!(c"Default timing method"),
         Text::HotkeySplit => cstr!(c"Start / Split"),
         Text::HotkeyReset => cstr!(c"Reset"),
         Text::HotkeyUndoSplit => cstr!(c"Split ongedaan maken"),
@@ -171,6 +174,7 @@ fn resolve_dutch(text: Text) -> *const c_char {
 
 fn resolve_french(text: Text) -> *const c_char {
     match text {
+        Text::PropertyTimingMethod => cstr!(c"Default timing method"),
         Text::HotkeySplit => cstr!(c"Démarrer / Split"),
         Text::HotkeyReset => cstr!(c"Réinitialiser"),
         Text::HotkeyUndoSplit => cstr!(c"Annuler le split"),
@@ -217,6 +221,7 @@ fn resolve_french(text: Text) -> *const c_char {
 
 fn resolve_german(text: Text) -> *const c_char {
     match text {
+        Text::PropertyTimingMethod => cstr!(c"Default timing method"),
         Text::HotkeySplit => cstr!(c"Start / Split"),
         Text::HotkeyReset => cstr!(c"Zurücksetzen"),
         Text::HotkeyUndoSplit => cstr!(c"Split rückgängig"),
@@ -261,6 +266,7 @@ fn resolve_german(text: Text) -> *const c_char {
 
 fn resolve_italian(text: Text) -> *const c_char {
     match text {
+        Text::PropertyTimingMethod => cstr!(c"Default timing method"),
         Text::HotkeySplit => cstr!(c"Avvia / Split"),
         Text::HotkeyReset => cstr!(c"Reimposta"),
         Text::HotkeyUndoSplit => cstr!(c"Annulla split"),
@@ -305,6 +311,7 @@ fn resolve_italian(text: Text) -> *const c_char {
 
 fn resolve_portuguese(text: Text) -> *const c_char {
     match text {
+        Text::PropertyTimingMethod => cstr!(c"Default timing method"),
         Text::HotkeySplit => cstr!(c"Iniciar / Split"),
         Text::HotkeyReset => cstr!(c"Reiniciar"),
         Text::HotkeyUndoSplit => cstr!(c"Desfazer split"),
@@ -347,6 +354,7 @@ fn resolve_portuguese(text: Text) -> *const c_char {
 
 fn resolve_polish(text: Text) -> *const c_char {
     match text {
+        Text::PropertyTimingMethod => cstr!(c"Default timing method"),
         Text::HotkeySplit => cstr!(c"Start / Split"),
         Text::HotkeyReset => cstr!(c"Reset"),
         Text::HotkeyUndoSplit => cstr!(c"Cofnij split"),
@@ -389,6 +397,7 @@ fn resolve_polish(text: Text) -> *const c_char {
 
 fn resolve_russian(text: Text) -> *const c_char {
     match text {
+        Text::PropertyTimingMethod => cstr!(c"Default timing method"),
         Text::HotkeySplit => cstr!(c"Старт / Сплит"),
         Text::HotkeyReset => cstr!(c"Сброс"),
         Text::HotkeyUndoSplit => cstr!(c"Отменить сплит"),
@@ -431,6 +440,7 @@ fn resolve_russian(text: Text) -> *const c_char {
 
 fn resolve_spanish(text: Text) -> *const c_char {
     match text {
+        Text::PropertyTimingMethod => cstr!(c"Default timing method"),
         Text::HotkeySplit => cstr!(c"Iniciar / Split"),
         Text::HotkeyReset => cstr!(c"Reiniciar"),
         Text::HotkeyUndoSplit => cstr!(c"Deshacer split"),
@@ -473,6 +483,7 @@ fn resolve_spanish(text: Text) -> *const c_char {
 
 fn resolve_brazilian_portuguese(text: Text) -> *const c_char {
     match text {
+        Text::PropertyTimingMethod => cstr!(c"Default timing method"),
         Text::HotkeySplit => cstr!(c"Iniciar / Split"),
         Text::HotkeyReset => cstr!(c"Resetar"),
         Text::HotkeyUndoSplit => cstr!(c"Desfazer split"),
@@ -515,6 +526,7 @@ fn resolve_brazilian_portuguese(text: Text) -> *const c_char {
 
 fn resolve_chinese_simplified(text: Text) -> *const c_char {
     match text {
+        Text::PropertyTimingMethod => cstr!(c"Default timing method"),
         Text::HotkeySplit => cstr!(c"开始 / 分段"),
         Text::HotkeyReset => cstr!(c"重置"),
         Text::HotkeyUndoSplit => cstr!(c"撤销分段"),
@@ -555,6 +567,7 @@ fn resolve_chinese_simplified(text: Text) -> *const c_char {
 
 fn resolve_chinese_traditional(text: Text) -> *const c_char {
     match text {
+        Text::PropertyTimingMethod => cstr!(c"Default timing method"),
         Text::HotkeySplit => cstr!(c"開始 / 分段"),
         Text::HotkeyReset => cstr!(c"重設"),
         Text::HotkeyUndoSplit => cstr!(c"撤銷分段"),
@@ -595,6 +608,7 @@ fn resolve_chinese_traditional(text: Text) -> *const c_char {
 
 fn resolve_japanese(text: Text) -> *const c_char {
     match text {
+        Text::PropertyTimingMethod => cstr!(c"Default timing method"),
         Text::HotkeySplit => cstr!(c"開始 / スプリット"),
         Text::HotkeyReset => cstr!(c"リセット"),
         Text::HotkeyUndoSplit => cstr!(c"スプリットを取り消す"),
@@ -639,6 +653,7 @@ fn resolve_japanese(text: Text) -> *const c_char {
 
 fn resolve_korean(text: Text) -> *const c_char {
     match text {
+        Text::PropertyTimingMethod => cstr!(c"Default timing method"),
         Text::HotkeySplit => cstr!(c"시작 / 스플릿"),
         Text::HotkeyReset => cstr!(c"리셋"),
         Text::HotkeyUndoSplit => cstr!(c"스플릿 되돌리기"),
